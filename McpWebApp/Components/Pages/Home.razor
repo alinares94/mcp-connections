@@ -1,0 +1,126 @@
+@page "/"
+@rendermode InteractiveServer
+@inject McpService McpSvc
+
+<PageTitle>MCP Server Test UI</PageTitle>
+
+<h1>MCP Server Test UI</h1>
+<p class="subtitle">Interactive test client for the MCP architecture</p>
+
+<div class="arch">
+    <span>Browser</span>
+    <span class="arrow">→</span>
+    <div class="node">McpWebApp <span>:5002</span></div>
+    <span class="arrow">→</span>
+    <div class="node @(selectedGateway == "ocelot" ? "node-ocelot" : "")">
+        @gatewayNodeLabel
+    </div>
+    <span class="arrow">→</span>
+    <div class="node">McpServer <span>:5000</span></div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Gateway</span>
+    </div>
+    <div class="gateway-selector">
+        <label class="gateway-option @(selectedGateway == "yarp" ? "selected" : "")">
+            <input type="radio" name="gateway" value="yarp"
+                   checked="@(selectedGateway == "yarp")"
+                   @onchange="@(() => SetGateway("yarp"))" />
+            <span class="gw-name">YARP</span>
+            <span class="gw-port">:5001</span>
+        </label>
+        <label class="gateway-option @(selectedGateway == "ocelot" ? "selected" : "")">
+            <input type="radio" name="gateway" value="ocelot"
+                   checked="@(selectedGateway == "ocelot")"
+                   @onchange="@(() => SetGateway("ocelot"))" />
+            <span class="gw-name">Ocelot</span>
+            <span class="gw-port">:5003</span>
+        </label>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Available Tools</span>
+        <button class="btn" @onclick="LoadTools" disabled="@loading">
+            @if (loading)
+            {
+                <span class="spinner"></span>
+                <span> Connecting...</span>
+            }
+            else
+            {
+                @(tools == null ? "Load Tools" : "Refresh")
+            }
+        </button>
+    </div>
+
+    @if (!loading && tools == null && errorMessage == null)
+    {
+        <p class="empty">Click "Load Tools" to connect to the MCP server via <strong>@selectedGateway.ToUpperInvariant()</strong>.</p>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="result error">Connection failed: @errorMessage</div>
+    }
+    else if (tools?.Count == 0)
+    {
+        <p class="empty">No tools found on the server.</p>
+    }
+    else if (tools != null)
+    {
+        @foreach (var tool in tools)
+        {
+            <ToolCard Tool="tool" />
+        }
+    }
+</div>
+
+@code {
+    private const string YarpUrl = "http://localhost:5001/api/mcp/analysis";
+    private const string OcelotUrl = "http://localhost:5003/api/mcp/analysis";
+
+    private string selectedGateway = "yarp";
+    private string gatewayNodeLabel => selectedGateway == "yarp"
+        ? "McpGateway (YARP) :5001"
+        : "McpGatewayOcelot (Ocelot) :5003";
+
+    private List<ToolInfo>? tools;
+    private bool loading;
+    private string? errorMessage;
+
+    protected override void OnInitialized()
+    {
+        McpSvc.GatewayUrl = YarpUrl;
+    }
+
+    private void SetGateway(string gateway)
+    {
+        selectedGateway = gateway;
+        McpSvc.GatewayUrl = gateway == "yarp" ? YarpUrl : OcelotUrl;
+        tools = null;
+        errorMessage = null;
+    }
+
+    private async Task LoadTools()
+    {
+        loading = true;
+        errorMessage = null;
+        tools = null;
+
+        try
+        {
+            tools = await McpSvc.ListToolsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

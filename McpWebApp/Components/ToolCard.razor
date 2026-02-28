@@ -1,0 +1,123 @@
+@inject McpService McpSvc
+@using System.Text.Json
+
+<div class="tool-card">
+    <div class="tool-header">
+        <span class="tool-name">@Tool.Name</span>
+        <span class="tool-badge">tool</span>
+    </div>
+    <div class="tool-desc">@Tool.Description</div>
+
+    @if (parameters.Count > 0)
+    {
+        <div class="form-row">
+            @foreach (var param in parameters)
+            {
+                <div class="field">
+                    <label>
+                        @param.Name
+                        @if (required.Contains(param.Name))
+                        {
+                            <span style="color:var(--error)"> *</span>
+                        }
+                    </label>
+                    <input type="text"
+                           value="@paramValues[param.Name]"
+                           @oninput="e => paramValues[param.Name] = e.Value?.ToString() ?? string.Empty"
+                           placeholder="@param.Description" />
+                </div>
+            }
+            <div>
+                <button class="btn btn-sm" @onclick="CallTool" disabled="@calling">Call</button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <button class="btn btn-sm" @onclick="CallTool" disabled="@calling">Call (no params)</button>
+    }
+
+    @if (calling || result != null || callError != null)
+    {
+        <div class="result @(callError != null ? "error" : "success")">
+            @if (calling)
+            {
+                <span class="spinner"></span>
+                <span> Calling tool...</span>
+            }
+            else if (callError != null)
+            {
+                @($"Error: {callError}")
+            }
+            else
+            {
+                @result
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required ToolInfo Tool { get; set; }
+
+    private List<(string Name, string Description)> parameters = [];
+    private HashSet<string> required = [];
+    private Dictionary<string, string> paramValues = [];
+    private bool calling;
+    private string? result;
+    private string? callError;
+
+    protected override void OnParametersSet()
+    {
+        parameters.Clear();
+        required.Clear();
+        paramValues.Clear();
+
+        if (Tool.InputSchema is { } schema && schema.ValueKind == JsonValueKind.Object)
+        {
+            if (schema.TryGetProperty("properties", out var props))
+            {
+                foreach (var prop in props.EnumerateObject())
+                {
+                    var desc = prop.Value.TryGetProperty("description", out var d)
+                        ? d.GetString() ?? prop.Name
+                        : prop.Name;
+                    parameters.Add((prop.Name, desc));
+                    paramValues[prop.Name] = string.Empty;
+                }
+            }
+            if (schema.TryGetProperty("required", out var req))
+            {
+                foreach (var r in req.EnumerateArray())
+                {
+                    var name = r.GetString();
+                    if (name != null) required.Add(name);
+                }
+            }
+        }
+    }
+
+    private async Task CallTool()
+    {
+        calling = true;
+        result = null;
+        callError = null;
+
+        try
+        {
+            var args = paramValues.ToDictionary(
+                kvp => kvp.Key,
+                kvp => (object?)kvp.Value);
+            var content = await McpSvc.CallToolAsync(Tool.Name, args);
+            result = content.Count > 0 ? string.Join("\n", content) : "(empty response)";
+        }
+        catch (Exception ex)
+        {
+            callError = ex.Message;
+        }
+        finally
+        {
+            calling = false;
+        }
+    }
+}

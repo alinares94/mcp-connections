@@ -1,0 +1,15 @@
+using ModelContextProtocol.Server;
+using System.ComponentModel;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services
+    .AddMcpServer()
+    .WithHttpTransport()
+    .WithToolsFromAssembly();
+
+var app = builder.Build();
+
+app.MapMcp("/mcp/analysis");
+
+app.Run("http://localhost:5000");

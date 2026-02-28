@@ -1,0 +1,10 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace McpWebApp;
+
+public record ToolInfo(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("inputSchema")] JsonElement? InputSchema
+);
