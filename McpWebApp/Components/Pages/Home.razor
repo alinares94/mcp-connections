@@ -1,54 +1,108 @@
 @page "/"
-@rendermode InteractiveServer
 @inject McpService McpSvc
 
-<PageTitle>MCP Server Test UI</PageTitle>
+<PageTitle>MCP Control</PageTitle>
 
-<h1>MCP Server Test UI</h1>
-<p class="subtitle">Interactive test client for the MCP architecture</p>
-
-<div class="arch">
-    <span>Browser</span>
-    <span class="arrow">→</span>
-    <div class="node">McpWebApp <span>:5002</span></div>
-    <span class="arrow">→</span>
-    <div class="node @(selectedGateway == "ocelot" ? "node-ocelot" : "")">
-        @gatewayNodeLabel
+<!-- Top bar -->
+<div class="topbar">
+    <div class="topbar-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+        </svg>
     </div>
-    <span class="arrow">→</span>
-    <div class="node">McpServer <span>:5000</span></div>
-</div>
-
-<div class="card">
-    <div class="card-header">
-        <span class="card-title">Gateway</span>
+    <div class="topbar-text">
+        <h1>MCP Control</h1>
+        <p>Model Context Protocol &mdash; Gateway Test UI</p>
     </div>
-    <div class="gateway-selector">
-        <label class="gateway-option @(selectedGateway == "yarp" ? "selected" : "")">
-            <input type="radio" name="gateway" value="yarp"
-                   checked="@(selectedGateway == "yarp")"
-                   @onchange="@(() => SetGateway("yarp"))" />
-            <span class="gw-name">YARP</span>
-            <span class="gw-port">:5001</span>
-        </label>
-        <label class="gateway-option @(selectedGateway == "ocelot" ? "selected" : "")">
-            <input type="radio" name="gateway" value="ocelot"
-                   checked="@(selectedGateway == "ocelot")"
-                   @onchange="@(() => SetGateway("ocelot"))" />
-            <span class="gw-name">Ocelot</span>
-            <span class="gw-port">:5003</span>
-        </label>
+    <div class="topbar-status">
+        <span class="status-dot @(tools != null ? "active" : "")"></span>
+        @if (tools != null)
+        {
+            <span>Connected</span>
+        }
+        else
+        {
+            <span>Idle</span>
+        }
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <span class="card-title">Available Tools</span>
-        <button class="btn" @onclick="LoadTools" disabled="@loading">
+<!-- Architecture diagram -->
+<div class="arch-panel">
+    <div class="arch-label">Request flow</div>
+    <div class="arch-flow">
+        <div class="arch-node node-client">Browser</div>
+
+        <div class="arch-connector @(tools != null ? "active" : "") @(selectedGateway == "ocelot" ? "is-ocelot" : "")">
+            <svg viewBox="0 0 28 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                <line x1="2" y1="6" x2="22" y2="6" /><polyline points="18,2 22,6 18,10" />
+            </svg>
+        </div>
+
+        <div class="arch-node node-webapp">McpWebApp<span class="port">:5002</span></div>
+
+        <div class="arch-connector @(tools != null ? "active" : "") @(selectedGateway == "ocelot" ? "is-ocelot" : "")">
+            <svg viewBox="0 0 28 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                <line x1="2" y1="6" x2="22" y2="6" /><polyline points="18,2 22,6 18,10" />
+            </svg>
+        </div>
+
+        <div class="arch-node node-gateway @(selectedGateway == "ocelot" ? "is-ocelot" : "")">
+            @(selectedGateway == "yarp" ? "YARP Gateway" : "Ocelot Gateway")<span class="port">@(selectedGateway == "yarp" ? ":5001" : ":5003")</span>
+        </div>
+
+        <div class="arch-connector @(tools != null ? "active" : "") @(selectedGateway == "ocelot" ? "is-ocelot" : "")">
+            <svg viewBox="0 0 28 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                <line x1="2" y1="6" x2="22" y2="6" /><polyline points="18,2 22,6 18,10" />
+            </svg>
+        </div>
+
+        <div class="arch-node node-server">McpServer<span class="port">:5000</span></div>
+    </div>
+</div>
+
+<!-- Gateway selector -->
+<div class="section">
+    <div class="section-head">
+        <span class="section-title">Gateway</span>
+    </div>
+    <div class="section-body">
+        <div class="gw-options">
+            <label class="gw-option @(selectedGateway == "yarp" ? "active-yarp" : "")" @onclick="@(() => SetGateway("yarp"))">
+                <input type="radio" name="gw" value="yarp" checked="@(selectedGateway == "yarp")" />
+                <span class="gw-radio"></span>
+                <span class="gw-info">
+                    <span class="gw-name">YARP</span>
+                    <span class="gw-endpoint">localhost:5001/api/mcp/*</span>
+                </span>
+            </label>
+            <label class="gw-option @(selectedGateway == "ocelot" ? "active-ocelot" : "")" @onclick="@(() => SetGateway("ocelot"))">
+                <input type="radio" name="gw" value="ocelot" checked="@(selectedGateway == "ocelot")" />
+                <span class="gw-radio"></span>
+                <span class="gw-info">
+                    <span class="gw-name">Ocelot</span>
+                    <span class="gw-endpoint">localhost:5003/api/mcp/*</span>
+                </span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<!-- Tools section -->
+<div class="section">
+    <div class="section-head">
+        <span class="section-title">
+            Tools
+            @if (tools != null)
+            {
+                <span class="count">@tools.Count</span>
+            }
+        </span>
+        <button class="btn btn-sm" @onclick="LoadTools" disabled="@loading">
             @if (loading)
             {
                 <span class="spinner"></span>
-                <span> Connecting...</span>
+                <span>Connecting...</span>
             }
             else
             {
@@ -59,15 +113,34 @@
 
     @if (!loading && tools == null && errorMessage == null)
     {
-        <p class="empty">Click "Load Tools" to connect to the MCP server via <strong>@selectedGateway.ToUpperInvariant()</strong>.</p>
+        <div class="empty-state">
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+            </div>
+            <p>Click <strong>Load Tools</strong> to discover available MCP tools<br/>via the <strong>@selectedGateway.ToUpperInvariant()</strong> gateway.</p>
+        </div>
     }
     else if (errorMessage != null)
     {
-        <div class="result error">Connection failed: @errorMessage</div>
+        <div class="conn-error">
+            <div class="conn-error-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+            </div>
+            <div class="conn-error-text">
+                <strong>Connection failed</strong>
+                <span class="detail">@errorMessage</span>
+            </div>
+        </div>
     }
     else if (tools?.Count == 0)
     {
-        <p class="empty">No tools found on the server.</p>
+        <div class="empty-state">
+            <p>No tools found on the server.</p>
+        </div>
     }
     else if (tools != null)
     {
@@ -83,10 +156,6 @@
     private const string OcelotUrl = "http://localhost:5003/api/mcp/analysis";
 
     private string selectedGateway = "yarp";
-    private string gatewayNodeLabel => selectedGateway == "yarp"
-        ? "McpGateway (YARP) :5001"
-        : "McpGatewayOcelot (Ocelot) :5003";
-
     private List<ToolInfo>? tools;
     private bool loading;
     private string? errorMessage;

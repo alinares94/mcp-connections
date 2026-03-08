@@ -1,3 +1,4 @@
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using System.Text.Json;
 
@@ -35,9 +36,8 @@ public class McpService
         });
         await using var client = await McpClient.CreateAsync(transport);
         var result = await client.CallToolAsync(toolName, args);
-        return result.Content
+        return [.. result.Content
             .Where(c => c.Type == "text")
-            .Select(c => c.ToString() ?? string.Empty)
-            .ToList();
+            .Select(c => c.ToString() ?? string.Empty)];
     }
 }
